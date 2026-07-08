@@ -3,242 +3,361 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bad Apple!! x Rickroll — ASCII Art</title>
+    <title>ASCII.RENDER</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        /* Шрифты: пиксельный для заголовков и моноширинный для UI и арта */
+        @import url('https://fonts.googleapis.com/css2?family=VT323&family=Courier+Prime:wght@400;700&display=swap');
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* Общие CSS переменные для интерфейса (стиль металлических/темных панелей 2000-х) */
+        :root {
+            --panel-bg: #2a2a2e;
+            --panel-border-top: #4a4a50;
+            --panel-border-bottom: #121215;
+            --title-bg: linear-gradient(90deg, #000080, #0044aa); /* Отсылка к классическим заголовкам */
+        }
+
+        /* Цветовые схемы экрана */
+        body[data-theme="white"] { --text: #e0e0e0; --bg: #050505; }
+        body[data-theme="green"] { --text: #00ff41; --bg: #000c00; }
+        body[data-theme="crimson"] { --text: #ff2a2a; --bg: #0c0000; }
+        body[data-theme="cyber"] { --text: #00ffff; --bg: #000511; }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
-            background-color: #000;
-            color: #fff;
-            overflow: hidden;
+            background-color: #111; /* Фон за пределами плеера */
+            display: flex;
+            align-items: center;
+            justify-content: center;
             height: 100vh;
             width: 100vw;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Courier Prime', Courier, monospace;
             user-select: none;
+            overflow: hidden;
         }
 
-        /* Loading Screen / Menu */
-        #menuScreen {
-            position: absolute;
+        /* Главный контейнер плеера (Y2K / Winamp Style) */
+        .player-app {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            z-index: 100;
-            background: #000;
-            width: 100%; height: 100%;
-            justify-content: center;
-            transition: opacity 0.5s;
-        }
-        #menuScreen.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        h1 {
-            font-size: 2.5rem;
-            letter-spacing: 4px;
-            color: #fff;
-            font-weight: 400;
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .instructions {
-            color: #aaa;
-            font-size: 1.1rem;
-            max-width: 600px;
-            text-align: center;
-            line-height: 1.5;
-            margin-bottom: 20px;
-        }
-
-        /* Buttons */
-        .btn-container {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .btn {
-            padding: 16px 48px;
-            background: transparent;
-            border: 2px solid #fff;
-            color: #fff;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.2rem;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: background 0.2s, color 0.2s, transform 0.1s;
-            text-transform: uppercase;
-        }
-        .btn:hover {
-            background: #fff;
-            color: #000;
-        }
-        .btn:active {
-            transform: scale(0.98);
-        }
-        .btn-magic {
-            background: #111;
-            border-color: #00ff88;
-            color: #00ff88;
-            font-weight: bold;
-            box-shadow: 0 0 15px rgba(0,255,136,0.3);
-        }
-        .btn-magic:hover {
-            background: #00ff88;
-            color: #000;
-            box-shadow: 0 0 25px rgba(0,255,136,0.6);
-        }
-
-        /* ASCII Display */
-        #asciiDisplay {
-            display: none;
-            position: absolute;
-            white-space: pre; 
-            letter-spacing: 0px;
-            color: #e0e0e0;
-            text-align: center;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
             width: 100%;
             height: 100%;
-            /* Use flex to center the ASCII block */
+            max-width: 1400px;
+            max-height: 95vh;
+            background: var(--panel-bg);
+            /* Жесткие рамки с эффектом выдавливания (Outset) */
+            border: 4px solid;
+            border-color: var(--panel-border-top) var(--panel-border-bottom) var(--panel-border-bottom) var(--panel-border-top);
+            padding: 6px;
+            gap: 6px;
+        }
+
+        /* Верхняя панель (Заголовок) */
+        .title-bar {
+            background: var(--title-bg);
+            color: #fff;
+            padding: 4px 10px;
+            font-family: 'VT323', monospace;
+            font-size: 1.6rem;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            /* Вдавленная рамка для экрана заголовка */
+            border: 2px solid;
+            border-color: var(--panel-border-bottom) var(--panel-border-top) var(--panel-border-top) var(--panel-border-bottom);
+        }
+
+        /* Экран плеера / Зона Drag & Drop */
+        .screen-container {
+            position: relative;
+            flex-grow: 1;
+            background: var(--bg);
+            /* Вдавленная рамка (Inset) */
+            border: 4px solid;
+            border-color: var(--panel-border-bottom) var(--panel-border-top) var(--panel-border-top) var(--panel-border-bottom);
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-        #asciiContent {
-            line-height: 1;
+            overflow: hidden;
+            cursor: pointer;
+            transition: background-color 0.1s; /* Легкая анимация только для цвета */
         }
 
-        .hint {
+        /* Hover эффекты исключительно через цвета */
+        .screen-container:hover, .screen-container.dragover {
+            background-color: #1a1a1a;
+        }
+
+        #dropText {
             position: absolute;
-            bottom: 20px;
-            color: #444;
-            font-size: 0.8rem;
-            display: none;
-            z-index: 10;
+            font-family: 'VT323', monospace;
+            font-size: clamp(3rem, 6vw, 5rem);
+            color: var(--text);
+            text-shadow: 0 0 5px var(--text);
+            pointer-events: none;
+            /* Легкое мигание текста через opacity */
+            animation: blink 2s steps(2, start) infinite;
         }
 
-        #fileInput {
-            display: none;
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
         }
+
+        #asciiDisplay {
+            display: none;
+            white-space: pre;
+            line-height: 1;
+            text-align: center;
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        /* Панель управления (Нижняя часть) */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            padding: 15px;
+            background: #1e1e22; /* Чуть темнее основного фона */
+            border: 2px solid;
+            border-color: var(--panel-border-bottom) var(--panel-border-top) var(--panel-border-top) var(--panel-border-bottom);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-group label {
+            font-size: 0.85rem;
+            color: #999;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        /* Элементы управления Select */
+        select {
+            background: var(--bg);
+            color: var(--text);
+            border: 2px solid;
+            border-color: var(--panel-border-bottom) var(--panel-border-top) var(--panel-border-top) var(--panel-border-bottom);
+            padding: 8px 12px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+            outline: none;
+        }
+
+        select option {
+            background: #111;
+            color: #fff;
+        }
+
+        /* Скрытые элементы */
+        #fileInput { display: none; }
+        #customVideo { display: none; }
+        #offscreenCanvas { display: none; }
+
     </style>
 </head>
-<body>
+<body data-theme="white">
 
-    <div id="menuScreen">
-        <h1>ASCII VIDEO ENGINE</h1>
-        <div class="instructions">
-            Сторонние API заблокировали скачивание, поэтому ты был абсолютно прав! 
-            <br><br>
-            Скачай то самое видео из TikTok на свой компьютер (например, через сайт <b>snaptik.app</b>), а затем выбери его здесь. Движок сам переведёт всё видео в символы!
+    <div class="player-app">
+        <!-- Заголовок программы -->
+        <div class="title-bar">ASCII.RENDER</div>
+        
+        <!-- Зона воспроизведения и загрузки файла -->
+        <div class="screen-container" id="dropZone">
+            <div id="dropText">[ DROP MP4 HERE ]</div>
+            <div id="asciiDisplay"></div>
         </div>
         
-        <div class="btn-container">
-            <button class="btn btn-magic" id="uploadBtn">Выбрать скачанный MP4</button>
+        <!-- Панель управления (3 опции) -->
+        <div class="controls">
+            <div class="control-group">
+                <label>COLOR_SCHEME</label>
+                <select id="colorSelect">
+                    <option value="white">Classic White</option>
+                    <option value="green">Toxic Green</option>
+                    <option value="crimson">Crimson Grunge</option>
+                    <option value="cyber">Neon Cyberpunk</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>CONV_MODE</label>
+                <select id="modeSelect">
+                    <option value="ascii">ASCII (Классика)</option>
+                    <option value="braille">Braille (Точки)</option>
+                    <option value="binary">Binary (0 и 1)</option>
+                    <option value="blocks">Blocks (Квадраты)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>DENSITY_RES</label>
+                <select id="densitySelect">
+                    <option value="80">Low (Быстро)</option>
+                    <option value="140" selected>Medium</option>
+                    <option value="220">High (Детально)</option>
+                </select>
+            </div>
         </div>
     </div>
 
+    <!-- Скрытые технические узлы для конвертации -->
     <input type="file" id="fileInput" accept="video/mp4,video/webm" />
-
-    <div id="asciiDisplay" style="display: none;">
-        <div id="asciiContent"></div>
-    </div>
-    <div class="hint" id="hint">Кликни в любом месте для паузы/продолжения</div>
-
-    <!-- Hidden video/canvas for real-time ASCII conversion -->
-    <video id="customVideo" style="display: none;" playsinline></video>
-    <canvas id="offscreenCanvas" style="display: none;"></canvas>
+    <video id="customVideo" playsinline></video>
+    <canvas id="offscreenCanvas"></canvas>
 
     <script>
-        const menuScreen = document.getElementById('menuScreen');
-        const uploadBtn = document.getElementById('uploadBtn');
+        // --- Элементы DOM ---
+        const dropZone = document.getElementById('dropZone');
+        const dropText = document.getElementById('dropText');
         const fileInput = document.getElementById('fileInput');
+        
         const asciiDisplay = document.getElementById('asciiDisplay');
-        const asciiContent = document.getElementById('asciiContent');
         const customVideo = document.getElementById('customVideo');
         const canvas = document.getElementById('offscreenCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
+        // --- Настройки и состояние ---
         let isPlaying = false;
         
-        // Custom HD ASCII Ramp (darkest to lightest)
-        const asciiRamp = " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+        const palettes = {
+            ascii: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
+            braille: " ⠁⠃⠇⡇⣇⣧⣷⣿",
+            binary: " 01",
+            blocks: "  ░▒▓█"
+        };
+        
+        let currentPalette = palettes.ascii;
 
-        uploadBtn.addEventListener('click', () => {
-            fileInput.click();
+        // --- Обработчики управления ---
+        
+        // 1. Цветовая схема
+        document.getElementById('colorSelect').addEventListener('change', (e) => {
+            document.body.setAttribute('data-theme', e.target.value);
         });
 
+        // 2. Режим конвертации
+        document.getElementById('modeSelect').addEventListener('change', (e) => {
+            currentPalette = palettes[e.target.value];
+            if (!isPlaying && customVideo.videoWidth) {
+                renderSingleFrame();
+            }
+        });
+
+        // 3. Плотность/Разрешение
+        document.getElementById('densitySelect').addEventListener('change', () => {
+            if (customVideo.videoWidth) {
+                updateResolution();
+                if (!isPlaying) renderSingleFrame();
+            }
+        });
+
+        // --- Drag & Drop логика ---
+        
+        dropZone.addEventListener('click', (e) => {
+            if (e.target !== fileInput) fileInput.click();
+        });
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if (dt.files && dt.files.length > 0) handleFile(dt.files[0]);
+        }, false);
+
         fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
+            if (e.target.files && e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
             if (!file) return;
 
             const fileURL = URL.createObjectURL(file);
             customVideo.src = fileURL;
 
-            menuScreen.classList.add('hidden');
-            asciiDisplay.style.display = 'flex';
-            document.getElementById('hint').style.display = 'block';
+            dropText.style.display = 'none';
+            asciiDisplay.style.display = 'block';
 
-            // Wait for video metadata to determine optimal ASCII resolution
             customVideo.addEventListener('loadedmetadata', () => {
-                const videoRatio = customVideo.videoWidth / customVideo.videoHeight;
-                
-                // Set a fixed width of ASCII characters, height depends on video ratio
-                // Monospace characters are roughly 2 times taller than they are wide (aspect 0.5)
-                const charAspect = 0.5;
-                
-                // Let's make the ASCII width around 160 characters for high detail
-                canvas.width = 180;
-                canvas.height = Math.floor((canvas.width * charAspect) / videoRatio);
-
-                adjustSizeFromVideo();
+                updateResolution();
                 window.addEventListener('resize', adjustSizeFromVideo);
                 
-                customVideo.play();
+                customVideo.play().catch(e => console.warn(e));
                 isPlaying = true;
                 requestAnimationFrame(renderLoop);
-            });
-        });
+            }, { once: true });
+        }
 
-        // --- REAL-TIME VIDEO TO ASCII LOGIC ---
+        // --- Рендеринг ASCII (Максимально оптимизированный цикл) ---
+        
+        function updateResolution() {
+            const videoRatio = customVideo.videoWidth / customVideo.videoHeight;
+            const charAspect = 0.5; // Учет пропорции моноширинного шрифта (высота ~2x от ширины)
+            
+            const density = parseInt(document.getElementById('densitySelect').value, 10);
+            canvas.width = density;
+            canvas.height = Math.floor((canvas.width * charAspect) / videoRatio);
+            
+            adjustSizeFromVideo();
+        }
+
+        function adjustSizeFromVideo() {
+            const charAspect = 0.5;
+            // Экран плеера немного меньше самого окна
+            const winW = dropZone.clientWidth * 0.98;
+            const winH = dropZone.clientHeight * 0.98;
+
+            const fontSizeW = winW / (canvas.width * charAspect);
+            const fontSizeH = winH / canvas.height;
+
+            let fontSize = Math.floor(Math.min(fontSizeW, fontSizeH));
+            fontSize = Math.max(4, fontSize);
+
+            asciiDisplay.style.fontSize = fontSize + 'px';
+            asciiDisplay.style.lineHeight = fontSize + 'px';
+        }
+
         function videoToAscii() {
             ctx.drawImage(customVideo, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             
             let asciiStr = '';
+            const palLen = currentPalette.length - 1;
+            
             for (let y = 0; y < canvas.height; y++) {
                 for (let x = 0; x < canvas.width; x++) {
                     const offset = (y * canvas.width + x) * 4;
-                    const r = data[offset];
-                    const g = data[offset + 1];
-                    const b = data[offset + 2];
+                    // Оптимизированный расчет яркости (luminance)
+                    const brightness = (0.299 * data[offset] + 0.587 * data[offset + 1] + 0.114 * data[offset + 2]);
+                    const charIndex = Math.floor((brightness / 255) * palLen);
                     
-                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
-                    const charIndex = Math.floor((brightness / 255) * (asciiRamp.length - 1));
-                    
-                    // Invert mapping for white text on black background
-                    asciiStr += asciiRamp[asciiRamp.length - 1 - charIndex];
+                    asciiStr += currentPalette[palLen - charIndex];
                 }
                 asciiStr += '\n';
             }
             return asciiStr;
-        }
-
-        function togglePlay() {
-            if (isPlaying) {
-                customVideo.pause();
-                isPlaying = false;
-            } else {
-                customVideo.play();
-                isPlaying = true;
-                requestAnimationFrame(renderLoop);
-            }
         }
 
         function renderLoop() {
@@ -247,35 +366,31 @@
             if (customVideo.ended) {
                 isPlaying = false;
             } else {
-                asciiContent.textContent = videoToAscii();
+                asciiDisplay.textContent = videoToAscii();
             }
 
+            if (isPlaying) requestAnimationFrame(renderLoop);
+        }
+
+        function renderSingleFrame() {
+            asciiDisplay.textContent = videoToAscii();
+        }
+
+        // Пауза по клику на экран
+        dropZone.addEventListener('click', (e) => {
+            // Если видео еще не загружено, клик вызовет input
+            if (customVideo.readyState === 0) return;
+            
             if (isPlaying) {
+                customVideo.pause();
+                isPlaying = false;
+            } else {
+                customVideo.play();
+                isPlaying = true;
                 requestAnimationFrame(renderLoop);
             }
-        }
-
-        function adjustSizeFromVideo() {
-            // Apply font size based on window
-            const charAspect = 0.5;
-            const winW = window.innerWidth * 0.95;
-            const winH = window.innerHeight * 0.95;
-
-            const fontSizeW = winW / (canvas.width * charAspect);
-            const fontSizeH = winH / canvas.height;
-
-            let fontSize = Math.floor(Math.min(fontSizeW, fontSizeH));
-            fontSize = Math.max(6, fontSize); // Minimum readable font size
-
-            asciiContent.style.fontSize = fontSize + 'px';
-            asciiContent.style.lineHeight = fontSize + 'px';
-        }
-
-        document.body.addEventListener('click', (e) => {
-            if (e.target !== uploadBtn && menuScreen.classList.contains('hidden')) {
-                togglePlay();
-            }
         });
+
     </script>
 </body>
 </html>
