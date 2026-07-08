@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad Apple!! x Rickroll — ASCII Art</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: #000;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            user-select: none;
+        }
+
+        /* Loading Screen / Menu */
+        #menuScreen {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            z-index: 100;
+            background: #000;
+            width: 100%; height: 100%;
+            justify-content: center;
+            transition: opacity 0.5s;
+        }
+        #menuScreen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        h1 {
+            font-size: 2.5rem;
+            letter-spacing: 4px;
+            color: #fff;
+            font-weight: 400;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .instructions {
+            color: #aaa;
+            font-size: 1.1rem;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        /* Buttons */
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .btn {
+            padding: 16px 48px;
+            background: transparent;
+            border: 2px solid #fff;
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.2s, color 0.2s, transform 0.1s;
+            text-transform: uppercase;
+        }
+        .btn:hover {
+            background: #fff;
+            color: #000;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .btn-magic {
+            background: #111;
+            border-color: #00ff88;
+            color: #00ff88;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(0,255,136,0.3);
+        }
+        .btn-magic:hover {
+            background: #00ff88;
+            color: #000;
+            box-shadow: 0 0 25px rgba(0,255,136,0.6);
+        }
+
+        /* ASCII Display */
+        #asciiDisplay {
+            display: none;
+            position: absolute;
+            white-space: pre; 
+            letter-spacing: 0px;
+            color: #e0e0e0;
+            text-align: center;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            width: 100%;
+            height: 100%;
+            /* Use flex to center the ASCII block */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #asciiContent {
+            line-height: 1;
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 20px;
+            color: #444;
+            font-size: 0.8rem;
+            display: none;
+            z-index: 10;
+        }
+
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="menuScreen">
+        <h1>ASCII VIDEO ENGINE</h1>
+        <div class="instructions">
+            Сторонние API заблокировали скачивание, поэтому ты был абсолютно прав! 
+            <br><br>
+            Скачай то самое видео из TikTok на свой компьютер (например, через сайт <b>snaptik.app</b>), а затем выбери его здесь. Движок сам переведёт всё видео в символы!
+        </div>
+        
+        <div class="btn-container">
+            <button class="btn btn-magic" id="uploadBtn">Выбрать скачанный MP4</button>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" accept="video/mp4,video/webm" />
+
+    <div id="asciiDisplay" style="display: none;">
+        <div id="asciiContent"></div>
+    </div>
+    <div class="hint" id="hint">Кликни в любом месте для паузы/продолжения</div>
+
+    <!-- Hidden video/canvas for real-time ASCII conversion -->
+    <video id="customVideo" style="display: none;" playsinline></video>
+    <canvas id="offscreenCanvas" style="display: none;"></canvas>
+
+    <script>
+        const menuScreen = document.getElementById('menuScreen');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('fileInput');
+        const asciiDisplay = document.getElementById('asciiDisplay');
+        const asciiContent = document.getElementById('asciiContent');
+        const customVideo = document.getElementById('customVideo');
+        const canvas = document.getElementById('offscreenCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        let isPlaying = false;
+        
+        // Custom HD ASCII Ramp (darkest to lightest)
+        const asciiRamp = " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const fileURL = URL.createObjectURL(file);
+            customVideo.src = fileURL;
+
+            menuScreen.classList.add('hidden');
+            asciiDisplay.style.display = 'flex';
+            document.getElementById('hint').style.display = 'block';
+
+            // Wait for video metadata to determine optimal ASCII resolution
+            customVideo.addEventListener('loadedmetadata', () => {
+                const videoRatio = customVideo.videoWidth / customVideo.videoHeight;
+                
+                // Set a fixed width of ASCII characters, height depends on video ratio
+                // Monospace characters are roughly 2 times taller than they are wide (aspect 0.5)
+                const charAspect = 0.5;
+                
+                // Let's make the ASCII width around 160 characters for high detail
+                canvas.width = 180;
+                canvas.height = Math.floor((canvas.width * charAspect) / videoRatio);
+
+                adjustSizeFromVideo();
+                window.addEventListener('resize', adjustSizeFromVideo);
+                
+                customVideo.play();
+                isPlaying = true;
+                requestAnimationFrame(renderLoop);
+            });
+        });
+
+        // --- REAL-TIME VIDEO TO ASCII LOGIC ---
+        function videoToAscii() {
+            ctx.drawImage(customVideo, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            let asciiStr = '';
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const offset = (y * canvas.width + x) * 4;
+                    const r = data[offset];
+                    const g = data[offset + 1];
+                    const b = data[offset + 2];
+                    
+                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+                    const charIndex = Math.floor((brightness / 255) * (asciiRamp.length - 1));
+                    
+                    // Invert mapping for white text on black background
+                    asciiStr += asciiRamp[asciiRamp.length - 1 - charIndex];
+                }
+                asciiStr += '\n';
+            }
+            return asciiStr;
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                customVideo.pause();
+                isPlaying = false;
+            } else {
+                customVideo.play();
+                isPlaying = true;
+                requestAnimationFrame(renderLoop);
+            }
+        }
+
+        function renderLoop() {
+            if (!isPlaying) return;
+
+            if (customVideo.ended) {
+                isPlaying = false;
+            } else {
+                asciiContent.textContent = videoToAscii();
+            }
+
+            if (isPlaying) {
+                requestAnimationFrame(renderLoop);
+            }
+        }
+
+        function adjustSizeFromVideo() {
+            // Apply font size based on window
+            const charAspect = 0.5;
+            const winW = window.innerWidth * 0.95;
+            const winH = window.innerHeight * 0.95;
+
+            const fontSizeW = winW / (canvas.width * charAspect);
+            const fontSizeH = winH / canvas.height;
+
+            let fontSize = Math.floor(Math.min(fontSizeW, fontSizeH));
+            fontSize = Math.max(6, fontSize); // Minimum readable font size
+
+            asciiContent.style.fontSize = fontSize + 'px';
+            asciiContent.style.lineHeight = fontSize + 'px';
+        }
+
+        document.body.addEventListener('click', (e) => {
+            if (e.target !== uploadBtn && menuScreen.classList.contains('hidden')) {
+                togglePlay();
+            }
+        });
+    </script>
+</body>
+</html>
