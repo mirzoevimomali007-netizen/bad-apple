@@ -5,269 +5,723 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASCII.RENDER</title>
     <style>
-        /* Шрифты: пиксельный для заголовков и моноширинный для UI и арта */
-        @import url('https://fonts.googleapis.com/css2?family=VT323&family=Courier+Prime:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
 
-        /* Общие CSS переменные для интерфейса (стиль металлических/темных панелей 2000-х) */
+        /* Общие CSS переменные */
         :root {
-            --panel-bg: #2a2a2e;
-            --panel-border-top: #4a4a50;
-            --panel-border-bottom: #121215;
-            --title-bg: linear-gradient(90deg, #000080, #0044aa); /* Отсылка к классическим заголовкам */
+            /* Базовые цвета неонового свечения */
+            --neon-blue: #00f3ff;
+            --neon-green: #39ff14;
+            --neon-red: #ff003c;
+            --neon-crimson: #ff2a2a;
+            --neon-cyber: #00ffff;
+            
+            --bg-dark: #050508;
+            --panel-bg: rgba(10, 15, 20, 0.75);
+            --border-glow: 0 0 10px;
         }
 
         /* Цветовые схемы экрана */
-        body[data-theme="white"] { --text: #e0e0e0; --bg: #050505; }
-        body[data-theme="green"] { --text: #00ff41; --bg: #000c00; }
-        body[data-theme="crimson"] { --text: #ff2a2a; --bg: #0c0000; }
-        body[data-theme="cyber"] { --text: #00ffff; --bg: #000511; }
+        body[data-theme="white"] { --text: #e0e0e0; --glow-color: rgba(224, 224, 224, 0.5); }
+        body[data-theme="green"] { --text: var(--neon-green); --glow-color: rgba(57, 255, 20, 0.5); }
+        body[data-theme="crimson"] { --text: var(--neon-crimson); --glow-color: rgba(255, 42, 42, 0.5); }
+        body[data-theme="cyber"] { --text: var(--neon-cyber); --glow-color: rgba(0, 255, 255, 0.8); }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            background-color: #111; /* Фон за пределами плеера */
+            background-color: #000;
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
             width: 100vw;
-            font-family: 'Courier Prime', Courier, monospace;
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--text);
             user-select: none;
             overflow: hidden;
+            position: relative;
         }
 
-        /* Главный контейнер плеера (Y2K / Winamp Style) */
+        /* Matrix Background */
+        #matrixCanvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+            opacity: 0.3;
+        }
+
+        /* CRT Effects Layer (Scanlines, Vignette, Flicker) */
+        .crt-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999;
+            pointer-events: none;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.95; }
+            50% { opacity: 1; }
+            100% { opacity: 0.98; }
+        }
+
+        /* Главный контейнер плеера */
         .player-app {
+            position: relative;
+            z-index: 10;
             display: flex;
             flex-direction: column;
-            width: 100%;
-            height: 100%;
+            width: 95%;
+            height: 95%;
             max-width: 1400px;
-            max-height: 95vh;
             background: var(--panel-bg);
-            /* Жесткие рамки с эффектом выдавливания (Outset) */
-            border: 4px solid;
-            border-color: var(--panel-border-top) var(--panel-border-bottom) var(--panel-border-bottom) var(--panel-border-top);
-            padding: 6px;
-            gap: 6px;
+            border: 2px solid var(--neon-blue);
+            box-shadow: inset 0 0 20px rgba(0, 243, 255, 0.2), 0 0 30px rgba(0, 243, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            gap: 15px;
+            backdrop-filter: blur(10px);
         }
 
-        /* Верхняя панель (Заголовок) */
+        .player-app:fullscreen {
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            border: none;
+            border-radius: 0;
+            padding: 20px;
+            background: rgba(5, 5, 8, 0.95);
+        }
+
+        /* Заголовок */
         .title-bar {
-            background: var(--title-bg);
-            color: #fff;
-            padding: 4px 10px;
+            text-align: center;
             font-family: 'VT323', monospace;
-            font-size: 1.6rem;
-            letter-spacing: 2px;
-            display: flex;
-            align-items: center;
-            /* Вдавленная рамка для экрана заголовка */
-            border: 2px solid;
-            border-color: var(--panel-border-bottom) var(--panel-border-top) var(--panel-border-top) var(--panel-border-bottom);
+            font-size: 3rem;
+            letter-spacing: 5px;
+            color: var(--neon-blue);
+            text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+            border-bottom: 2px dashed var(--neon-blue);
+            padding-bottom: 10px;
         }
 
         /* Экран плеера / Зона Drag & Drop */
         .screen-container {
             position: relative;
             flex-grow: 1;
-            background: var(--bg);
-            /* Вдавленная рамка (Inset) */
-            border: 4px solid;
-            border-color: var(--panel-border-bottom) var(--panel-border-top) var(--panel-border-top) var(--panel-border-bottom);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid var(--neon-green);
+            box-shadow: inset 0 0 30px rgba(57, 255, 20, 0.1), 0 0 15px rgba(57, 255, 20, 0.2);
+            border-radius: 4px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             overflow: hidden;
             cursor: pointer;
-            transition: background-color 0.1s; /* Легкая анимация только для цвета */
+            transition: all 0.3s ease;
         }
 
-        /* Hover эффекты исключительно через цвета */
-        .screen-container:hover, .screen-container.dragover {
-            background-color: #1a1a1a;
+        .screen-container.dragover {
+            background: rgba(57, 255, 20, 0.1);
+            border-style: dashed;
+            box-shadow: inset 0 0 50px rgba(57, 255, 20, 0.3), 0 0 25px rgba(57, 255, 20, 0.5);
         }
 
-        #dropText {
-            position: absolute;
+        /* Контент Drop Zone */
+        .drop-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            text-align: center;
+        }
+
+        .drop-icon {
+            width: 80px;
+            height: 80px;
+            fill: none;
+            stroke: var(--neon-green);
+            stroke-width: 2;
+            filter: drop-shadow(0 0 10px var(--neon-green));
+            animation: pulse-icon 2s infinite;
+        }
+
+        @keyframes pulse-icon {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+
+        .drop-text {
             font-family: 'VT323', monospace;
-            font-size: clamp(3rem, 6vw, 5rem);
-            color: var(--text);
-            text-shadow: 0 0 5px var(--text);
-            pointer-events: none;
-            /* Легкое мигание текста через opacity */
-            animation: blink 2s steps(2, start) infinite;
+            font-size: 2.5rem;
+            color: var(--neon-green);
+            text-shadow: 0 0 10px var(--neon-green);
+            letter-spacing: 2px;
         }
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.2; }
+        /* Кнопка Demo */
+        .demo-btn {
+            background: transparent;
+            border: 2px solid var(--neon-red);
+            color: var(--neon-red);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+            text-shadow: 0 0 8px var(--neon-red);
+            box-shadow: 0 0 10px rgba(255, 0, 60, 0.2), inset 0 0 10px rgba(255, 0, 60, 0.2);
+            z-index: 15;
         }
 
+        .demo-btn:hover {
+            background: rgba(255, 0, 60, 0.15);
+            box-shadow: 0 0 20px rgba(255, 0, 60, 0.6), inset 0 0 20px rgba(255, 0, 60, 0.4);
+        }
+
+        .demo-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--neon-red);
+            filter: drop-shadow(0 0 5px var(--neon-red));
+        }
+
+        /* ASCII Display */
         #asciiDisplay {
             display: none;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
             white-space: pre;
             line-height: 1;
             text-align: center;
             color: var(--text);
-            font-weight: 700;
+            text-shadow: 0 0 5px var(--glow-color);
+            font-weight: bold;
         }
 
-        /* Панель управления (Нижняя часть) */
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        /* Панель управления (Сегментированные кнопки) */
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            border-radius: 4px;
+            padding: 10px 15px;
+        }
+
+        /* Hover Settings Menu */
+        .settings-hover-container {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .settings-header {
+            color: var(--neon-blue);
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px var(--neon-blue);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 5px 0;
+            border-bottom: 1px dashed transparent;
+            transition: border-color 0.3s;
+        }
+
+        .settings-hover-container:hover .settings-header {
+            border-color: rgba(0, 243, 255, 0.3);
+        }
+
+        .settings-header svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--neon-blue);
+            filter: drop-shadow(0 0 5px var(--neon-blue));
+            transition: transform 0.3s;
+        }
+
+        .settings-hover-container:hover .settings-header svg {
+            transform: rotate(90deg);
+        }
+
+        .settings-content {
+            display: flex;
+            flex-direction: column;
             gap: 15px;
-            padding: 15px;
-            background: #1e1e22; /* Чуть темнее основного фона */
-            border: 2px solid;
-            border-color: var(--panel-border-bottom) var(--panel-border-top) var(--panel-border-top) var(--panel-border-bottom);
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.4s ease, padding 0.4s ease;
+        }
+
+        .settings-hover-container:hover .settings-content {
+            max-height: 500px;
+            opacity: 1;
+            padding-top: 15px;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed rgba(0, 243, 255, 0.3);
+        }
+
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
         }
 
         .control-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
+            flex-grow: 1;
         }
 
-        .control-group label {
-            font-size: 0.85rem;
-            color: #999;
+        .control-label {
+            color: var(--neon-blue);
+            font-size: 0.9rem;
             text-transform: uppercase;
-            font-weight: bold;
             letter-spacing: 1px;
+            text-shadow: 0 0 5px var(--neon-blue);
         }
 
-        /* Элементы управления Select */
-        select {
-            background: var(--bg);
-            color: var(--text);
-            border: 2px solid;
-            border-color: var(--panel-border-bottom) var(--panel-border-top) var(--panel-border-top) var(--panel-border-bottom);
-            padding: 8px 12px;
-            font-family: inherit;
-            font-weight: bold;
-            font-size: 0.95rem;
+        /* Segmented Radio Buttons */
+        .segmented-control {
+            display: flex;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--neon-blue);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .segmented-control input[type="radio"] {
+            display: none;
+        }
+
+        .segmented-control label {
+            flex: 1;
+            text-align: center;
+            padding: 8px 6px;
             cursor: pointer;
+            color: #666;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            border-right: 1px solid rgba(0, 243, 255, 0.3);
+        }
+        .segmented-control label:last-child {
+            border-right: none;
+        }
+
+        .segmented-control input[type="radio"]:checked + label {
+            background: rgba(0, 243, 255, 0.2);
+            color: var(--neon-blue);
+            text-shadow: 0 0 8px var(--neon-blue);
+            box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        /* Специфично для темы CYBERPUNK - ярче */
+        #theme-cyber:checked + label {
+            background: rgba(0, 255, 255, 0.3);
+            color: var(--neon-cyber);
+            text-shadow: 0 0 15px var(--neon-cyber);
+            box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.8);
+        }
+
+        /* Ползунок Volume / Resolution */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-grow: 1;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type="range"]:focus {
             outline: none;
         }
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(0, 243, 255, 0.2);
+            border-radius: 3px;
+            border: 1px solid var(--neon-blue);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--neon-blue);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -6px;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
 
-        select option {
-            background: #111;
-            color: #fff;
+        /* Media Panel */
+        .media-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding-top: 5px;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 8px rgba(0, 243, 255, 0.2);
+        }
+
+        .icon-btn:hover {
+            background: rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+        }
+
+        .icon-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            filter: drop-shadow(0 0 5px currentColor);
+        }
+
+        .volume-icon {
+            color: var(--neon-blue);
+            width: 24px;
+            height: 24px;
         }
 
         /* Скрытые элементы */
-        #fileInput { display: none; }
-        #customVideo { display: none; }
-        #offscreenCanvas { display: none; }
-
+        #fileInput, #customVideo, #offscreenCanvas { display: none; }
     </style>
 </head>
 <body data-theme="white">
+    <canvas id="matrixCanvas"></canvas>
+    <div class="crt-overlay"></div>
 
     <div class="player-app">
-        <!-- Заголовок программы -->
+        <!-- Заголовок -->
         <div class="title-bar">ASCII.RENDER</div>
         
-        <!-- Зона воспроизведения и загрузки файла -->
+        <!-- Зона воспроизведения -->
         <div class="screen-container" id="dropZone">
-            <div id="dropText">[ DROP MP4 HERE ]</div>
+            <div class="drop-content" id="dropContent">
+                <svg class="drop-icon" viewBox="0 0 24 24">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                <div class="drop-text">DROP MP4 OR START DEMO</div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
+                    <button class="demo-btn" id="uploadBtn" style="border-color: var(--neon-blue); color: var(--neon-blue); text-shadow: 0 0 8px var(--neon-blue); box-shadow: 0 0 10px rgba(0, 243, 255, 0.2), inset 0 0 10px rgba(0, 243, 255, 0.2);">
+                        <svg viewBox="0 0 24 24" style="fill: var(--neon-blue); filter: drop-shadow(0 0 5px var(--neon-blue));"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                        UPLOAD MP4
+                    </button>
+                    <button class="demo-btn" id="demoBtn">
+                        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        START BAD APPLE DEMO
+                    </button>
+                </div>
+            </div>
             <div id="asciiDisplay"></div>
         </div>
         
-        <!-- Панель управления (3 опции) -->
-        <div class="controls">
-            <div class="control-group">
-                <label>COLOR_SCHEME</label>
-                <select id="colorSelect">
-                    <option value="white">Classic White</option>
-                    <option value="green">Toxic Green</option>
-                    <option value="crimson">Crimson Grunge</option>
-                    <option value="cyber">Neon Cyberpunk</option>
-                </select>
+        <!-- Панели управления -->
+        <div class="controls-panel">
+            <div class="settings-hover-container">
+                <div class="settings-header">
+                    <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+                    SETTINGS
+                </div>
+                <div class="settings-content">
+                    <div class="control-row">
+                        <!-- THEME -->
+                        <div class="control-group">
+                            <div class="control-label">THEME</div>
+                            <div class="segmented-control">
+                                <input type="radio" name="theme" id="theme-white" value="white" checked>
+                                <label for="theme-white">WHITE</label>
+                                
+                                <input type="radio" name="theme" id="theme-green" value="green">
+                                <label for="theme-green">TOXIC GREEN</label>
+                                
+                                <input type="radio" name="theme" id="theme-crimson" value="crimson">
+                                <label for="theme-crimson">CRIMSON GRUNGE</label>
+                                
+                                <input type="radio" name="theme" id="theme-cyber" value="cyber">
+                                <label for="theme-cyber">NEON CYBERPUNK</label>
+                            </div>
+                        </div>
+
+                        <!-- MODE -->
+                        <div class="control-group">
+                            <div class="control-label">MODE</div>
+                            <div class="segmented-control">
+                                <input type="radio" name="mode" id="mode-ascii" value="ascii" checked>
+                                <label for="mode-ascii">ASCII</label>
+                                
+                                <input type="radio" name="mode" id="mode-braille" value="braille">
+                                <label for="mode-braille">BRAILLE</label>
+                                
+                                <input type="radio" name="mode" id="mode-binary" value="binary">
+                                <label for="mode-binary">BINARY</label>
+                                
+                                <input type="radio" name="mode" id="mode-blocks" value="blocks">
+                                <label for="mode-blocks">BLOCKS</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-row">
+                        <!-- RESOLUTION -->
+                        <div class="control-group" style="flex: 1;">
+                            <div class="control-label">RESOLUTION</div>
+                            <div class="segmented-control">
+                                <input type="radio" name="density" id="res-low" value="80">
+                                <label for="res-low">LOW</label>
+                                
+                                <input type="radio" name="density" id="res-medium" value="140" checked>
+                                <label for="res-medium">MEDIUM</label>
+                                
+                                <input type="radio" name="density" id="res-high" value="220">
+                                <label for="res-high">HIGH</label>
+                                
+                                <input type="radio" name="density" id="res-ultra" value="320">
+                                <label for="res-ultra">ULTRA</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <div class="control-group">
-                <label>CONV_MODE</label>
-                <select id="modeSelect">
-                    <option value="ascii">ASCII (Классика)</option>
-                    <option value="braille">Braille (Точки)</option>
-                    <option value="binary">Binary (0 и 1)</option>
-                    <option value="blocks">Blocks (Квадраты)</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <label>DENSITY_RES</label>
-                <select id="densitySelect">
-                    <option value="80">Low (Быстро)</option>
-                    <option value="140" selected>Medium</option>
-                    <option value="220">High (Детально)</option>
-                </select>
+
+            <!-- MEDIA PANEL -->
+            <div class="control-row">
+                <div class="control-group media-panel" style="flex: 1;">
+                    <button class="icon-btn" id="mediaUploadBtn" title="Upload MP4">
+                        <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                    </button>
+                    <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
+                        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                    </button>
+                    <button class="icon-btn" id="playPauseBtn" title="Play/Pause">
+                        <!-- Pause Icon Default when playing -->
+                        <svg id="icon-play" viewBox="0 0 24 24" style="display: block;"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="icon-pause" viewBox="0 0 24 24" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    </button>
+                    <button class="icon-btn" id="restartBtn" title="Restart">
+                        <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                    </button>
+                    
+                    <div class="slider-container" style="max-width: 300px;">
+                        <svg class="volume-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                        </svg>
+                        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Скрытые технические узлы для конвертации -->
+    <!-- Скрытые элементы -->
     <input type="file" id="fileInput" accept="video/mp4,video/webm" />
     <video id="customVideo" playsinline></video>
     <canvas id="offscreenCanvas"></canvas>
 
     <script>
-        // --- Элементы DOM ---
+        // --- Matrix Background Animation ---
+        const mCanvas = document.getElementById('matrixCanvas');
+        const mCtx = mCanvas.getContext('2d');
+        
+        mCanvas.width = window.innerWidth;
+        mCanvas.height = window.innerHeight;
+        
+        const matrixChars = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        const fontSize = 16;
+        let columns = mCanvas.width / fontSize;
+        let drops = [];
+        for(let x = 0; x < columns; x++) drops[x] = 1;
+        
+        function drawMatrix() {
+            // Pause matrix animation to save CPU when video is covering the screen
+            if (dropContent.style.display === 'none') return;
+            
+            mCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            mCtx.fillRect(0, 0, mCanvas.width, mCanvas.height);
+            mCtx.fillStyle = '#0F0';
+            mCtx.font = fontSize + 'px monospace';
+            
+            for(let i = 0; i < drops.length; i++) {
+                const text = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+                mCtx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if(drops[i] * fontSize > mCanvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 50);
+
+        window.addEventListener('resize', () => {
+            mCanvas.width = window.innerWidth;
+            mCanvas.height = window.innerHeight;
+            columns = mCanvas.width / fontSize;
+            drops = [];
+            for(let x = 0; x < columns; x++) drops[x] = 1;
+        });
+
+        // --- Core App Logic ---
         const dropZone = document.getElementById('dropZone');
-        const dropText = document.getElementById('dropText');
+        const dropContent = document.getElementById('dropContent');
         const fileInput = document.getElementById('fileInput');
+        const demoBtn = document.getElementById('demoBtn');
         
         const asciiDisplay = document.getElementById('asciiDisplay');
         const customVideo = document.getElementById('customVideo');
         const canvas = document.getElementById('offscreenCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-        // --- Настройки и состояние ---
+        // Media Panel buttons
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const iconPlay = document.getElementById('icon-play');
+        const iconPause = document.getElementById('icon-pause');
+
         let isPlaying = false;
         
         const palettes = {
-            ascii: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
-            braille: " ⠁⠃⠇⡇⣇⣧⣷⣿",
-            binary: " 01",
-            blocks: "  ░▒▓█"
+            ascii: ' .\'`^",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$',
+            braille: ' ⠁⠃⠇⡇⣇⣧⣷⣿',
+            binary: ' 01',
+            blocks: '  ░▒▓█'
         };
         
         let currentPalette = palettes.ascii;
 
-        // --- Обработчики управления ---
-        
-        // 1. Цветовая схема
-        document.getElementById('colorSelect').addEventListener('change', (e) => {
-            document.body.setAttribute('data-theme', e.target.value);
+        // --- Control Handlers ---
+
+        document.querySelectorAll('input[name="theme"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                document.body.setAttribute('data-theme', e.target.value);
+            });
         });
 
-        // 2. Режим конвертации
-        document.getElementById('modeSelect').addEventListener('change', (e) => {
-            currentPalette = palettes[e.target.value];
-            if (!isPlaying && customVideo.videoWidth) {
-                renderSingleFrame();
+        document.querySelectorAll('input[name="mode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                currentPalette = palettes[e.target.value];
+                if (!isPlaying && customVideo.videoWidth) renderSingleFrame();
+            });
+        });
+
+        document.querySelectorAll('input[name="density"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (customVideo.videoWidth) {
+                    updateResolution();
+                    if (!isPlaying) renderSingleFrame();
+                }
+            });
+        });
+
+        // --- Media Control Handlers ---
+
+        function togglePlayPause() {
+            if (customVideo.readyState === 0) return;
+            if (isPlaying) {
+                customVideo.pause();
+                isPlaying = false;
+                iconPlay.style.display = 'block';
+                iconPause.style.display = 'none';
+            } else {
+                customVideo.play().catch(e => console.warn(e));
+                isPlaying = true;
+                iconPlay.style.display = 'none';
+                iconPause.style.display = 'block';
+                requestAnimationFrame(renderLoop);
+            }
+        }
+
+        playPauseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePlayPause();
+        });
+
+        restartBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (customVideo.readyState > 0) {
+                customVideo.currentTime = 0;
+                if (!isPlaying) togglePlayPause();
             }
         });
 
-        // 3. Плотность/Разрешение
-        document.getElementById('densitySelect').addEventListener('change', () => {
-            if (customVideo.videoWidth) {
-                updateResolution();
-                if (!isPlaying) renderSingleFrame();
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        fullscreenBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const videoArea = document.getElementById('dropZone');
+            if (!document.fullscreenElement) {
+                videoArea.requestFullscreen().catch(err => {
+                    console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
             }
         });
 
-        // --- Drag & Drop логика ---
-        
+        volumeSlider.addEventListener('input', (e) => {
+            customVideo.volume = e.target.value;
+        });
+
+        customVideo.volume = volumeSlider.value;
+
+        // --- Drag & Drop & Load ---
+
         dropZone.addEventListener('click', (e) => {
-            if (e.target !== fileInput) fileInput.click();
+            // Только ставим на паузу, если видео загружено
+            if (customVideo.readyState > 0 && !e.target.closest('.demo-btn')) {
+                togglePlayPause();
+            }
+        });
+
+        const uploadBtn = document.getElementById('uploadBtn');
+        const mediaUploadBtn = document.getElementById('mediaUploadBtn');
+        const triggerUpload = (e) => {
+            e.stopPropagation();
+            fileInput.click();
+        };
+        uploadBtn.addEventListener('click', triggerUpload);
+        if (mediaUploadBtn) mediaUploadBtn.addEventListener('click', triggerUpload);
+
+        demoBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Load Demo Bad Apple video (using a common direct link if local is not present)
+            // A local link might fail, so we use an archive.org link
+            const demoUrl = "https://ia801908.us.archive.org/17/items/BadApple_201612/Bad%20Apple.mp4";
+            loadVideoSrc(demoUrl);
         });
 
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -293,30 +747,45 @@
 
         function handleFile(file) {
             if (!file) return;
-
             const fileURL = URL.createObjectURL(file);
-            customVideo.src = fileURL;
+            loadVideoSrc(fileURL);
+        }
 
-            dropText.style.display = 'none';
+        function loadVideoSrc(src) {
+            customVideo.crossOrigin = "anonymous"; // For external demo URL
+            customVideo.src = src;
+            dropContent.style.display = 'none';
             asciiDisplay.style.display = 'block';
 
             customVideo.addEventListener('loadedmetadata', () => {
                 updateResolution();
                 window.addEventListener('resize', adjustSizeFromVideo);
                 
-                customVideo.play().catch(e => console.warn(e));
-                isPlaying = true;
-                requestAnimationFrame(renderLoop);
+                customVideo.play().then(() => {
+                    isPlaying = true;
+                    iconPlay.style.display = 'none';
+                    iconPause.style.display = 'block';
+                    requestAnimationFrame(renderLoop);
+                }).catch(e => {
+                    console.warn("Autoplay prevented or error:", e);
+                    isPlaying = false;
+                    iconPlay.style.display = 'block';
+                    iconPause.style.display = 'none';
+                    renderSingleFrame();
+                });
             }, { once: true });
         }
 
-        // --- Рендеринг ASCII (Максимально оптимизированный цикл) ---
-        
+        // --- ASCI Render Logic ---
+
         function updateResolution() {
+            if (!customVideo.videoWidth) return;
             const videoRatio = customVideo.videoWidth / customVideo.videoHeight;
-            const charAspect = 0.5; // Учет пропорции моноширинного шрифта (высота ~2x от ширины)
+            const charAspect = 0.5; 
             
-            const density = parseInt(document.getElementById('densitySelect').value, 10);
+            const checkedDensity = document.querySelector('input[name="density"]:checked').value;
+            const density = parseInt(checkedDensity, 10);
+            
             canvas.width = density;
             canvas.height = Math.floor((canvas.width * charAspect) / videoRatio);
             
@@ -324,19 +793,19 @@
         }
 
         function adjustSizeFromVideo() {
+            if (!canvas.width) return;
             const charAspect = 0.5;
-            // Экран плеера немного меньше самого окна
             const winW = dropZone.clientWidth * 0.98;
             const winH = dropZone.clientHeight * 0.98;
 
             const fontSizeW = winW / (canvas.width * charAspect);
             const fontSizeH = winH / canvas.height;
 
-            let fontSize = Math.floor(Math.min(fontSizeW, fontSizeH));
-            fontSize = Math.max(4, fontSize);
+            let asciiFontSize = Math.floor(Math.min(fontSizeW, fontSizeH));
+            asciiFontSize = Math.max(4, asciiFontSize);
 
-            asciiDisplay.style.fontSize = fontSize + 'px';
-            asciiDisplay.style.lineHeight = fontSize + 'px';
+            asciiDisplay.style.fontSize = asciiFontSize + 'px';
+            asciiDisplay.style.lineHeight = asciiFontSize + 'px';
         }
 
         function videoToAscii() {
@@ -349,7 +818,6 @@
             for (let y = 0; y < canvas.height; y++) {
                 for (let x = 0; x < canvas.width; x++) {
                     const offset = (y * canvas.width + x) * 4;
-                    // Оптимизированный расчет яркости (luminance)
                     const brightness = (0.299 * data[offset] + 0.587 * data[offset + 1] + 0.114 * data[offset + 2]);
                     const charIndex = Math.floor((brightness / 255) * palLen);
                     
@@ -360,37 +828,32 @@
             return asciiStr;
         }
 
-        function renderLoop() {
+        let lastRenderTime = 0;
+        const TARGET_FPS = 30;
+        const RENDER_INTERVAL = 1000 / TARGET_FPS;
+
+        function renderLoop(timestamp) {
             if (!isPlaying) return;
 
             if (customVideo.ended) {
                 isPlaying = false;
+                iconPlay.style.display = 'block';
+                iconPause.style.display = 'none';
             } else {
-                asciiDisplay.textContent = videoToAscii();
+                if (!lastRenderTime || timestamp - lastRenderTime >= RENDER_INTERVAL) {
+                    asciiDisplay.textContent = videoToAscii();
+                    lastRenderTime = timestamp;
+                }
             }
 
             if (isPlaying) requestAnimationFrame(renderLoop);
         }
 
         function renderSingleFrame() {
-            asciiDisplay.textContent = videoToAscii();
-        }
-
-        // Пауза по клику на экран
-        dropZone.addEventListener('click', (e) => {
-            // Если видео еще не загружено, клик вызовет input
-            if (customVideo.readyState === 0) return;
-            
-            if (isPlaying) {
-                customVideo.pause();
-                isPlaying = false;
-            } else {
-                customVideo.play();
-                isPlaying = true;
-                requestAnimationFrame(renderLoop);
+            if (customVideo.readyState > 0) {
+                asciiDisplay.textContent = videoToAscii();
             }
-        });
-
+        }
     </script>
 </body>
 </html>
